@@ -49,10 +49,13 @@ pub fn new_reader(v: &[u8]) -> Reader<'_> {
     Reader { reader: v }
 }
 
-pub fn from_utf8(b: Reader) -> Result<&str> {
-    match str::from_utf8(b.reader) {
-        Ok(v) => Ok(v),
-        Err(e) => Err(Error::from_kind(ErrorKind::TextContainsNonUtf8Data(e))),
+impl<'a> TryInto<&'a str> for Reader<'a> {
+    type Error = Error;
+    fn try_into(self) -> Result<&'a str> {
+        match str::from_utf8(self.reader) {
+            Ok(v) => Ok(v),
+            Err(e) => Err(Error::from_kind(ErrorKind::TextContainsNonUtf8Data(e))),
+        }
     }
 }
 
@@ -70,7 +73,7 @@ impl<'a> From<&'a str> for Reader<'a> {
 
 impl<'a> Display for Reader<'a> {
     fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
-        match from_utf8(*self) {
+        match Reader::try_into(*self) {
             Ok(s) => write!(f, "{}", s),
             Err(_) => Err(core::fmt::Error),
         }

@@ -1,4 +1,4 @@
-use crate::{dynamic_value, text};
+use crate::dynamic_value;
 use core::fmt::{self, Formatter};
 
 #[derive(Clone, Copy, Debug, Default)]
@@ -72,13 +72,13 @@ pub(crate) fn print(
         dynamic_value::Reader::Float32(x) => formatter.write_fmt(format_args!("{x}")),
         dynamic_value::Reader::Float64(x) => formatter.write_fmt(format_args!("{x}")),
         dynamic_value::Reader::Enum(e) => match cvt(e.get_enumerant())? {
-            Some(enumerant) => formatter.write_str(cvt(text::from_utf8(cvt(enumerant
-                .get_proto()
-                .get_name())?))?),
+            Some(enumerant) => {
+                formatter.write_str(cvt(cvt(enumerant.get_proto().get_name())?.try_into())?)
+            }
             None => formatter.write_fmt(format_args!("{}", e.get_value())),
         },
         dynamic_value::Reader::Text(t) => {
-            if let Ok(s) = text::from_utf8(t) {
+            if let Ok(s) = t.try_into() {
                 formatter.write_fmt(format_args!("{s:?}"))
             } else {
                 print(dynamic_value::Reader::Data(t.reader), formatter, indent)
@@ -139,8 +139,7 @@ pub(crate) fn print(
                             indent2.comma(formatter)?;
                         }
                         indent2.maybe_newline(formatter)?;
-                        formatter
-                            .write_str(cvt(text::from_utf8(cvt(ff.get_proto().get_name())?))?)?;
+                        formatter.write_str(cvt(cvt(ff.get_proto().get_name())?.try_into())?)?;
                         formatter.write_str(" = ")?;
                         print(cvt(st.get(ff))?, formatter, indent2)?;
                         union_field = None;
@@ -153,8 +152,7 @@ pub(crate) fn print(
                         indent2.comma(formatter)?;
                     }
                     indent2.maybe_newline(formatter)?;
-                    formatter
-                        .write_str(cvt(text::from_utf8(cvt(field.get_proto().get_name())?))?)?;
+                    formatter.write_str(cvt(cvt(field.get_proto().get_name())?.try_into())?)?;
                     formatter.write_str(" = ")?;
                     print(cvt(st.get(field))?, formatter, indent2)?;
                 }
@@ -165,7 +163,7 @@ pub(crate) fn print(
                     indent2.comma(formatter)?;
                 }
                 indent2.maybe_newline(formatter)?;
-                formatter.write_str(cvt(text::from_utf8(cvt(ff.get_proto().get_name())?))?)?;
+                formatter.write_str(cvt(cvt(ff.get_proto().get_name())?.try_into())?)?;
                 formatter.write_str(" = ")?;
                 print(cvt(st.get(ff))?, formatter, indent2)?;
             }
