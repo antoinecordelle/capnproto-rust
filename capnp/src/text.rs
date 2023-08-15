@@ -19,11 +19,12 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 // THE SOFTWARE.
 
-//! UTF-8 encoded text.
+//! Encoded text.
 
+use core::fmt::{Display, Formatter};
 use core::{convert, ops, str};
 
-use crate::{Error, ErrorKind, Result};
+use crate::{data, Error, ErrorKind, Result};
 
 #[derive(Copy, Clone)]
 pub struct Owned(());
@@ -39,12 +40,40 @@ impl crate::introspect::Introspect for Owned {
     }
 }
 
-pub type Reader<'a> = &'a str;
+#[derive(Clone, Copy)]
+pub struct Reader<'a> {
+    pub reader: data::Reader<'a>,
+}
 
-pub fn new_reader(v: &[u8]) -> Result<Reader<'_>> {
-    match str::from_utf8(v) {
+pub fn new_reader(v: &[u8]) -> Reader<'_> {
+    Reader { reader: v }
+}
+
+pub fn from_utf8(b: Reader) -> Result<&str> {
+    match str::from_utf8(b.reader) {
         Ok(v) => Ok(v),
         Err(e) => Err(Error::from_kind(ErrorKind::TextContainsNonUtf8Data(e))),
+    }
+}
+
+impl<'a> Reader<'a> {
+    pub fn as_bytes(&self) -> &[u8] {
+        self.reader
+    }
+}
+
+impl<'a> From<&'a str> for Reader<'a> {
+    fn from(value: &'a str) -> Self {
+        new_reader(value.as_bytes())
+    }
+}
+
+impl<'a> Display for Reader<'a> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
+        match from_utf8(*self) {
+            Ok(s) => write!(f, "{}", s),
+            Err(_) => Err(core::fmt::Error),
+        }
     }
 }
 
@@ -87,6 +116,11 @@ impl<'a> Builder<'a> {
         self.pos += bytes.len();
     }
 
+    pub fn push_bytes(&mut self, bytes: &[u8]) {
+        self.bytes[self.pos..(self.pos + bytes.len())].copy_from_slice(bytes);
+        self.pos += bytes.len();
+    }
+
     pub fn clear(&mut self) {
         for b in &mut self.bytes[..self.pos] {
             *b = 0;
@@ -102,7 +136,7 @@ impl<'a> Builder<'a> {
     }
 
     pub fn into_reader(self) -> Reader<'a> {
-        str::from_utf8(self.bytes).unwrap()
+        new_reader(self.bytes)
     }
 }
 

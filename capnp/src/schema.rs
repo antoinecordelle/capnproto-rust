@@ -3,13 +3,13 @@
 #[cfg(feature = "alloc")]
 use alloc::string::ToString;
 
-use crate::dynamic_value;
 use crate::introspect::{self, RawBrandedStructSchema, RawEnumSchema};
 use crate::private::layout;
 use crate::schema_capnp::{annotation, enumerant, field, node};
 use crate::struct_list;
 use crate::traits::{IndexMove, ListIter, ShortListIter};
 use crate::Result;
+use crate::{dynamic_value, text};
 
 /// A struct node, with generics applied.
 #[derive(Clone, Copy)]
@@ -61,7 +61,7 @@ impl StructSchema {
     /// Looks up a field by name. Returns `None` if no matching field is found.
     pub fn find_field_by_name(&self, name: &str) -> Result<Option<Field>> {
         for field in self.get_fields()? {
-            if field.get_proto().get_name()? == name {
+            if text::from_utf8(field.get_proto().get_name()?)? == name {
                 return Ok(Some(field));
             }
         }
