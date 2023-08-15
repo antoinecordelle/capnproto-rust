@@ -24,8 +24,8 @@ use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 
 use capnp;
-use capnp::schema_capnp;
 use capnp::Error;
+use capnp::{schema_capnp, text};
 
 use self::FormattedText::{BlankLine, Branch, Indent, Line};
 use crate::codegen_types::{do_branding, Leaf, RustNodeInfo, RustTypeInfo, TypeParameterTexts};
@@ -123,7 +123,8 @@ impl CodeGenerationCommand {
         for requested_file in ctx.request.get_requested_files()? {
             let id = requested_file.get_id();
             let mut filepath = self.output_directory.to_path_buf();
-            let requested = ::std::path::PathBuf::from(requested_file.get_filename()?);
+            let file_name = capnp::text::from_utf8(requested_file.get_filename()?)?;
+            let requested = ::std::path::PathBuf::from(file_name);
             filepath.push(requested);
             if let Some(parent) = filepath.parent() {
                 ::std::fs::create_dir_all(parent).map_err(convert_io_err)?;
@@ -247,7 +248,8 @@ impl<'a> GeneratorContext<'a> {
             let id = requested_file.get_id();
 
             for import in requested_file.get_imports()? {
-                let importpath = ::std::path::Path::new(import.get_name()?);
+                let importpath =
+                    ::std::path::Path::new(capnp::text::from_utf8(import.get_name()?)?);
                 let root_name: String = format!(
                     "{}_capnp",
                     path_to_stem_string(importpath)?.replace('-', "_")
@@ -267,7 +269,8 @@ impl<'a> GeneratorContext<'a> {
                 )?;
             }
 
-            let root_name = path_to_stem_string(requested_file.get_filename()?)?;
+            let root_name =
+                path_to_stem_string(capnp::text::from_utf8(requested_file.get_filename()?)?)?;
             let root_mod = format!("{}_capnp", root_name.replace('-', "_"));
             ctx.populate_scope_map(
                 default_parent_module_scope.clone(),
@@ -530,7 +533,7 @@ const OPTION_ANNOTATION_ID: u64 = 0xabfef22c4ee1964e;
 
 fn name_annotation_value(annotation: schema_capnp::annotation::Reader) -> capnp::Result<&str> {
     if let schema_capnp::value::Text(t) = annotation.get_value()?.which()? {
-        let name = t?;
+        let name = capnp::text::from_utf8(t?)?;
         for c in name.chars() {
             if !(c == '_' || c.is_alphanumeric()) {
                 return Err(capnp::Error::failed(
@@ -553,7 +556,7 @@ fn get_field_name(field: schema_capnp::field::Reader) -> capnp::Result<&str> {
             return name_annotation_value(annotation);
         }
     }
-    field.get_name()
+    capnp::text::from_utf8(field.get_name()?)
 }
 
 fn get_enumerant_name(enumerant: schema_capnp::enumerant::Reader) -> capnp::Result<&str> {
@@ -562,12 +565,12 @@ fn get_enumerant_name(enumerant: schema_capnp::enumerant::Reader) -> capnp::Resu
             return name_annotation_value(annotation);
         }
     }
-    enumerant.get_name()
+    capnp::text::from_utf8(enumerant.get_name()?)
 }
 
 fn get_parent_module(annotation: schema_capnp::annotation::Reader) -> capnp::Result<Vec<String>> {
     if let schema_capnp::value::Text(t) = annotation.get_value()?.which()? {
-        let module = t?;
+        let module = capnp::text::from_utf8(t?)?;
         Ok(module.split("::").map(|x| x.to_string()).collect())
     } else {
         Err(capnp::Error::failed(
@@ -662,7 +665,7 @@ fn get_params(ctx: &GeneratorContext, mut node_id: u64) -> ::capnp::Result<Vec<S
         let parameters = node.get_parameters()?;
 
         for parameter in parameters.into_iter().rev() {
-            result.push(parameter.get_name()?.into());
+            result.push(text::from_utf8(parameter.get_name()?)?.into());
         }
 
         node_id = node.get_scope_id();
@@ -1856,7 +1859,7 @@ fn get_ty_params_of_brand(
     for (scope_id, parameter_index) in acc.into_iter() {
         let node = ctx.node_map[&scope_id];
         let p = node.get_parameters()?.get(u32::from(parameter_index));
-        result.push_str(p.get_name()?);
+        result.push_str(capnp::text::from_utf8(p.get_name()?)?);
         result.push(',');
     }
 
@@ -2496,7 +2499,7 @@ fn generate_node(
 
             let methods = interface.get_methods()?;
             for (ordinal, method) in methods.into_iter().enumerate() {
-                let name = method.get_name()?;
+                let name = capnp::text::from_utf8(method.get_name()?)?;
 
                 let param_id = method.get_param_struct_type();
                 let param_node = &ctx.node_map[&param_id];
@@ -2928,9 +2931,10 @@ fn generate_node(
                     }
                 }
 
-                (type_::Text(()), value::Text(t)) => {
-                    Line(format!("pub const {styled_name}: &str = {:?};", t?))
-                }
+                (type_::Text(()), value::Text(t)) => Line(format!(
+                    "pub const {styled_name}: &str = {:?};",
+                    capnp::text::from_utf8(t?)?
+                )),
                 (type_::Data(()), value::Data(d)) => {
                     Line(format!("pub const {styled_name}: &[u8] = &{:?};", d?))
                 }
