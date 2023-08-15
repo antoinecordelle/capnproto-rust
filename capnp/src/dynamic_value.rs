@@ -76,6 +76,12 @@ impl<'a> From<()> for Reader<'a> {
     }
 }
 
+impl<'a> From<&'a str> for Reader<'a> {
+    fn from(s: &'a str) -> Reader<'a> {
+        Reader::Text(s.into())
+    }
+}
+
 macro_rules! primitive_dynamic_value(
     ($t:ty, $v:ident) => (
         impl <'a> From<$t> for Reader<'a> {

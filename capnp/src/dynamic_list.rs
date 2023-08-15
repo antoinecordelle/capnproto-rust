@@ -299,11 +299,11 @@ impl<'a> Builder<'a> {
             (TypeVariant::Enum(_es), dynamic_value::Reader::Enum(e)) => {
                 Ok(PrimitiveElement::set(&self.builder, index, e.get_value()))
             }
-            (TypeVariant::Text, dynamic_value::Reader::Text(t)) => Ok(self
+            (TypeVariant::Text, dynamic_value::Reader::Text(t)) => self
                 .builder
                 .reborrow()
                 .get_pointer_element(index)
-                .set_text(t)),
+                .set_text(t),
             (TypeVariant::Data, dynamic_value::Reader::Data(d)) => Ok(self
                 .builder
                 .reborrow()

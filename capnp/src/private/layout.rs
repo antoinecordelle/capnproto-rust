@@ -1740,13 +1740,13 @@ mod wire_helpers {
         arena: &'a mut dyn BuilderArena,
         reff: *mut WirePointer,
         segment_id: u32,
-        value: &str,
-    ) -> SegmentAnd<text::Builder<'a>> {
-        let value_bytes = value.as_bytes();
+        value: text::Reader,
+    ) -> Result<SegmentAnd<text::Builder<'a>>> {
+        let value_str = text::from_utf8(value)?;
         // TODO make sure the string is not longer than 2 ** 29.
-        let mut allocation = init_text_pointer(arena, reff, segment_id, value_bytes.len() as u32);
-        allocation.value.push_str(value);
-        allocation
+        let mut allocation = init_text_pointer(arena, reff, segment_id, value_str.len() as u32);
+        allocation.value.push_str(value_str);
+        Ok(allocation)
     }
 
     #[inline]
@@ -2615,7 +2615,7 @@ mod wire_helpers {
     ) -> Result<text::Reader<'a>> {
         if (*reff).is_null() {
             match default {
-                None => return Ok(""),
+                None => return Ok(text::Reader::from("")),
                 Some(d) => {
                     reff = d.as_ptr() as *const WirePointer;
                     arena = &super::NULL_ARENA;
@@ -2661,7 +2661,10 @@ mod wire_helpers {
             ));
         }
 
-        text::new_reader(slice::from_raw_parts(str_ptr, size as usize - 1))
+        Ok(text::new_reader(slice::from_raw_parts(
+            str_ptr,
+            size as usize - 1,
+        )))
     }
 
     #[inline]
@@ -3282,10 +3285,11 @@ impl<'a> PointerBuilder<'a> {
         }
     }
 
-    pub fn set_text(&mut self, value: &str) {
+    pub fn set_text(&mut self, value: text::Reader) -> Result<()> {
         unsafe {
-            wire_helpers::set_text_pointer(self.arena, self.pointer, self.segment_id, value);
+            wire_helpers::set_text_pointer(self.arena, self.pointer, self.segment_id, value)?;
         }
+        Ok(())
     }
 
     pub fn set_data(&mut self, value: &[u8]) {

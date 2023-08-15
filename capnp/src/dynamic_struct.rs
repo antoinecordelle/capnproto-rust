@@ -334,7 +334,7 @@ impl<'a> Builder<'a> {
                             // If the type is a generic, then the default value
                             // is always an empty AnyPointer. Ignore that case.
                             if let value::Text(t) = dval {
-                                p.set_text(t?);
+                                p.set_text(t?)?;
                             }
                         }
                         Ok(dynamic_value::Builder::Text(p.get_text(None)?))
@@ -489,7 +489,7 @@ impl<'a> Builder<'a> {
                     }
                     (TypeVariant::Text, dynamic_value::Reader::Text(tv), _) => {
                         let mut p = self.builder.reborrow().get_pointer_field(offset);
-                        p.set_text(tv);
+                        p.set_text(tv)?;
                         Ok(())
                     }
                     (TypeVariant::Data, dynamic_value::Reader::Data(v), _) => {
